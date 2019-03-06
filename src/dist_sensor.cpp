@@ -21,9 +21,11 @@
  ***************************************************************************/
 
 #include "main.h"
+#include "VL53L0X.h"
 #include "dist_sensor.h"
 #include "eeconfig.h"
 #include "pins.h"
+
 /** sensor 0 (called 1 in interface) is normally looking to the left (pin 1(gnd),2(+), and 3(analog value) in plug)
  *  sensor 1 (called 2 in interface) is normally looking forward (pin 4,5,6 in plug) */
 uint32_t irRaw[2]; 
@@ -36,8 +38,88 @@ float irDistance[2];
 uint32_t irCal20cm[2] = {72300, 72300}; 
 uint32_t irCal80cm[2] = {12500, 12500};
 
-float irA[2] = {1e-4, 1};
-float irB[2] = {1e-4, 1};
+float irA[2] = {1, 1};
+float irB[2] = {1, 1};
+
+/* 
+ VL53L0X implementation
+ */
+
+#define TOF_FRONT_ADDR 0x20
+#define TOF_LEFT_ADDR 0x20
+
+VL53L0X tof_front;
+
+
+#define HIGH_SPEED
+//#define HIGH_ACCURACY
+
+
+void estimateIrDistance()
+{
+  if (useDistSensor)
+  { // dist sensor has power, so estimate
+    // is updated every approx 32ms or slower, so average over 32 samples 
+    if (initIrFilter)
+    { // when IR is first turned on
+      irRaw[0] = irRawAD[0] * 32;
+      irRaw[1] = irRawAD[1] * 32;
+      initIrFilter = false;
+    }
+    else
+    {
+      irRaw[0] = (irRaw[0]*31)/32 + irRawAD[0];
+      irRaw[1] = (irRaw[1]*31)/32 + irRawAD[1];
+    }
+   
+      irRaw[0]=(tof_front.readRangeSingleMillimeters() / 1000.0);
+      irRaw[1]=(tof_front.readRangeSingleMillimeters() / 1000.0);
+      
+    irDistance[0]=(tof_front.readRangeSingleMillimeters() / 1000.0);       
+    irDistance[1]=(tof_front.readRangeSingleMillimeters() / 1000.0);
+
+   // irDistance[0]=tof_front.readRangeSingleMilimeters();
+   // irDistance[1]=tof_front.readRangeSingleMilimeters();
+   
+
+   }
+}
+
+
+void setIRpower(bool power)
+{
+  if (distSensorInstalled)
+  {
+    if (power and not useDistSensor)
+    { // initialize average fileter
+      initIrFilter = true;
+      
+      tof_front.init();
+      tof_front.setTimeout(500);
+            
+#if defined HIGH_SPEED
+      tof_front.setMeasurementTimingBudget(20000);
+#elif defined HIGH_ACCURACY
+      tof_front.setMeasurementTimingBudget(200000);
+#endif
+      
+      
+      
+    }
+    useDistSensor = power;
+  }
+  else
+    useDistSensor = false;
+  //
+  digitalWriteFast(PIN_POWER_IR, useDistSensor);
+  
+}
+
+
+
+
+
+
 
 void sendStatusDistIR()
 {
@@ -70,92 +152,94 @@ void calibrateIr()
   // r(x ) = 1/(irA * x - irB)
   //
   // calibration fixed distances - inverted and scaled
-  const int32_t d1 = 10000/13; // cm
-  const int32_t d2 = 10000/50; // cm
-  for (int i = 0; i < 2; i++)
-  { // calculate constants for both sensors
-    const int32_t v1 = irCal20cm[i];
-    const int32_t v2 = irCal80cm[i];
-    float dri = float(d1-d2)/float(v1-v2);
-    // and scaled back to meters^-1
-    irA[i] = dri / 100.0; // inclination
-    irB[i] = (dri * v2 - d2) / 100.0; // offset
-    // debug
-    //         if (hbTimerCnt %200 == 0)
-    {
-      const int MSL = 90;
-      char s[MSL];
-      snprintf(s, MSL, "# ir%d, irA=%g, irB=%g, dri=%g\n", i, irA[i], irB[i], dri);
-      usb_send_str(s);
-    }
-    // debug 2
-  }
+//   const int32_t d1 = 10000/13; // cm
+//   const int32_t d2 = 10000/50; // cm
+//   for (int i = 0; i < 2; i++)
+//   { // calculate constants for both sensors
+//     const int32_t v1 = irCal20cm[i];
+//     const int32_t v2 = irCal80cm[i];
+//     float dri = float(d1-d2)/float(v1-v2);
+//     // and scaled back to meters^-1
+//     irA[i] = dri / 100.0; // inclination
+//     irB[i] = (dri * v2 - d2) / 100.0; // offset
+//     // debug
+//     //         if (hbTimerCnt %200 == 0)
+//     {
+//       const int MSL = 90;
+//       char s[MSL];
+//       snprintf(s, MSL, "# hello ir%d, irA=%g, irB=%g, dri=%g\n", i, irA[i], irB[i], dri);
+//       usb_send_str(s);
+//     }
+//     // debug 2
+//   }
 }
+
+
 
 ////////////////////////////////////////////////
 
 bool setIrCalibrate(const char * buf)
 {
-  bool used = false; 
-  { // is for the line sensor
-    if (strncmp(buf, "irc", 3) == 0)
-    { // 
-      char * p1 = (char *)&buf[4];
-      used = true;
-      irCal20cm[0] = strtol(p1, &p1, 10);
-      irCal80cm[0] = strtol(p1, &p1, 10);
-      irCal20cm[1] = strtol(p1, &p1, 10);
-      irCal80cm[1] = strtol(p1, &p1, 10);
-      setIRpower(strtol(p1, &p1, 10));
-      distSensorInstalled = strtol(p1, &p1, 10);
-      //usb_send_str("# got an irc\n");      
-      //
-      calibrateIr();
-    }
-  }
-  return used;  
+   bool used = false; 
+//   { // is for the line sensor
+//     if (strncmp(buf, "irc", 3) == 0)
+//     { // 
+//       char * p1 = (char *)&buf[4];
+       used = true;
+//       irCal20cm[0] = strtol(p1, &p1, 10);
+//       irCal80cm[0] = strtol(p1, &p1, 10);
+//       irCal20cm[1] = strtol(p1, &p1, 10);
+//       irCal80cm[1] = strtol(p1, &p1, 10);
+//       setIRpower(strtol(p1, &p1, 10));
+//       distSensorInstalled = strtol(p1, &p1, 10);
+//       //usb_send_str("# got an irc\n");      
+//       //
+//       calibrateIr();
+//     }
+//   }
+ return used;  
 }
 
 /////////////////////////////////////////////////////////
 
-void estimateIrDistance()
-{
-  if (useDistSensor)
-  { // dist sensor has power, so estimate
-    // is updated every approx 32ms or slower, so average over 32 samples 
-    if (initIrFilter)
-    { // when IR is first turned on
-      irRaw[0] = irRawAD[0] * 32;
-      irRaw[1] = irRawAD[1] * 32;
-      initIrFilter = false;
-    }
-    else
-    {
-      irRaw[0] = (irRaw[0]*31)/32 + irRawAD[0];
-      irRaw[1] = (irRaw[1]*31)/32 + irRawAD[1];
-    }
-    irDistance[0] = 1.0/(float(irRaw[0]) * irA[0] - irB[0]);
-    irDistance[1] = 1.0/(float(irRaw[1]) * irA[1] - irB[1]);
-    // debug
-//     if (hbTimerCnt %200 == 0)
-//     {
-//       const int MSL = 70;
-//       char s[MSL];
-//       snprintf(s, MSL, "# irRaw=%lu, irA=%g, irB=%g, d=%g\n", irRaw[1], irA[1], irB[1], irDistance[1]);
-//       usb_send_str(s);
+// void estimateIrDistance()
+// {
+//   if (useDistSensor)
+//   { // dist sensor has power, so estimate
+//     // is updated every approx 32ms or slower, so average over 32 samples 
+//     if (initIrFilter)
+//     { // when IR is first turned on
+//       irRaw[0] = irRawAD[0] * 32;
+//       irRaw[1] = irRawAD[1] * 32;
+//       initIrFilter = false;
 //     }
-    // debug 2
-    if (irDistance[0] > 1.5 or irDistance[0] < 0.05)
-      irDistance[0] = 1.5;
-    if (irDistance[1] > 1.5 or irDistance[1] < 0.05)
-      irDistance[1] = 1.5;
-  }
-  else
-  { // not installed or not on (set to far away 10m)
-    irDistance[0] = 10.0;
-    irDistance[1] = 10.0;
-  }
-}
+//     else
+//     {
+//       irRaw[0] = (irRaw[0]*31)/32 + irRawAD[0];
+//       irRaw[1] = (irRaw[1]*31)/32 + irRawAD[1];
+//     }
+//     irDistance[0] = 1.0/(float(irRaw[0]) * irA[0] - irB[0]);
+//     irDistance[1] = 1.0/(float(irRaw[1]) * irA[1] - irB[1]);
+//     // debug
+// //     if (hbTimerCnt %200 == 0)
+// //     {
+// //       const int MSL = 70;
+// //       char s[MSL];
+// //       snprintf(s, MSL, "# irRaw=%lu, irA=%g, irB=%g, d=%g\n", irRaw[1], irA[1], irB[1], irDistance[1]);
+// //       usb_send_str(s);
+// //     }
+//     // debug 2
+//     if (irDistance[0] > 1.5 or irDistance[0] < 0.05)
+//       irDistance[0] = 1.5;
+//     if (irDistance[1] > 1.5 or irDistance[1] < 0.05)
+//       irDistance[1] = 1.5;
+//   }
+//   else
+//   { // not installed or not on (set to far away 10m)
+//     irDistance[0] = 10.0;
+//     irDistance[1] = 10.0;
+//   }
+// }
 
 /////////////////////////////////////
 
@@ -200,18 +284,21 @@ void eePromLoadIr()
     eeConfig.skipAddr(skipCount);
 }
 
-void setIRpower(bool power)
-{
-  if (distSensorInstalled)
-  {
-    if (power and not useDistSensor)
-    { // initialize average fileter
-      initIrFilter = true;
-    }
-    useDistSensor = power;
-  }
-  else
-    useDistSensor = false;
-  //
-  digitalWriteFast(PIN_POWER_IR, useDistSensor);
-}
+// void setIRpower(bool power)
+// {
+//   if (distSensorInstalled)
+//   {
+//     if (power and not useDistSensor)
+//     { // initialize average fileter
+//       initIrFilter = true;
+//       
+//       
+//       
+//     }
+//     useDistSensor = power;
+//   }
+//   else
+//     useDistSensor = false;
+//   
+//   digitalWriteFast(PIN_POWER_IR, useDistSensor);
+// }
