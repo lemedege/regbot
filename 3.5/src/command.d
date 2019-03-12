@@ -13,8 +13,8 @@
  ../teensy3/usb_mtp.h ../teensy3/usb_audio.h ../teensy3/usb_touch.h \
  ../teensy3/usb_undef.h ../teensy3/WCharacter.h \
  ../teensy3/elapsedMillis.h ../teensy3/IntervalTimer.h \
- ../libteensy/ADC/atomic.h ../teensy3/IntervalTimer.h ../src/mpu9150.h \
- ../libteensy/i2c_t3/i2c_t3.h ../teensy3/DMAChannel.h \
+ ../libteensy/ADC/atomic.h ../teensy3/IntervalTimer.h ../src/VL53L0X.h \
+ ../src/mpu9150.h ../libteensy/i2c_t3/i2c_t3.h ../teensy3/DMAChannel.h \
  ../src/motor_controller.h ../src/main.h ../teensy3/core_pins.h \
  ../teensy3/usb_serial.h ../teensy3/HardwareSerial.h ../src/pins.h \
  ../src/command.h ../src/data_logger.h ../libteensy/SD/SD.h \

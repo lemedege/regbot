@@ -15,5 +15,5 @@
  ../teensy3/usb_mtp.h ../teensy3/usb_audio.h ../teensy3/usb_touch.h \
  ../teensy3/usb_undef.h ../teensy3/WCharacter.h \
  ../teensy3/elapsedMillis.h ../teensy3/IntervalTimer.h \
- ../libteensy/ADC/atomic.h ../src/pins.h ../src/VL53L0X.h \
- ../src/dist_sensor.h ../src/eeconfig.h ../src/command.h
+ ../libteensy/ADC/atomic.h ../src/pins.h ../src/dist_sensor.h \
+ ../src/VL53L0X.h ../src/eeconfig.h ../src/command.h
