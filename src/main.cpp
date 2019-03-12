@@ -31,7 +31,9 @@
 // #include "../teensy3/pins_arduino.h"
 // #include "../teensy3/core_pins.h"
 #include "pins.h"
+#include <i2c_t3.h>
 #include "IntervalTimer.h"
+#include "VL53L0X.h"
 #include "mpu9150.h"
 #include "motor_controller.h"
 #include "data_logger.h"
@@ -58,6 +60,9 @@
 // for on-board SD card
 #endif
 
+//#define TOFINSTALLED
+
+
 int16_t robotId = 0;
 uint8_t robotHWversion = 6;
 
@@ -65,6 +70,7 @@ uint8_t robotHWversion = 6;
 IntervalTimer hbTimer;
 /// has positive reply been received frrom IMU
 bool imuAvailable = false;
+bool tofAvailable = false;
 // battery low filter
 uint16_t batVoltInt = 0;
 // heart beat timer

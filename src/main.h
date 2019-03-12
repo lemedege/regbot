@@ -43,6 +43,8 @@
 #include <ADC.h>
 #include "pins.h"
 
+//#define TOFINSTALLED
+
 
 // control period is time between control calls
 // and is in units of 10us, ie 125 is 1.25ms or 800Hz
@@ -77,6 +79,7 @@ extern uint32_t adcHalfStartTime, adcHalfConvertTime;
 extern float steerWheelAngle; // steering angle (ref) from front wheel servo - calculated from wheel ref velocity
 // Is communication with IMU possible (if not a power cycle is needed)
 extern bool imuAvailable;
+extern bool tofAvailable;
 /// battery halt is when battery voltage is too low ,
 /// mission is stopped and 12V power is cut off.
 /// if on USB power, then the processor continues.

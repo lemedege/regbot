@@ -29,6 +29,7 @@
 #include <malloc.h>
 #include <ADC.h>
 #include "IntervalTimer.h"
+#include "VL53L0X.h"
 #include "mpu9150.h"
 #include "motor_controller.h"
 #include "data_logger.h"
@@ -46,6 +47,7 @@
 #include "control.h"
 //#include <../Snooze/Snooze.h>
 //#define __MK20DX256__
+
 
 float time = 0.0; // system time in seconds
 uint32_t timeAtMissionStart = 0;
@@ -148,20 +150,69 @@ void sendStatusCurrentVolt()
 
 /**
  * Test all I2C adresses and print reply. */
+// void testAddr(void)
+// {
+//   int ak;
+//   const int MRL = 100;
+//   char reply[MRL];
+//   for (int i= 0; i < 0x7f; i++)
+//   {
+//     Wire.beginTransmission(i);
+//     Wire.write(0);
+//     ak = Wire.endTransmission(I2C_STOP,1000);
+//     snprintf(reply, MRL, "addr test addr %d (%x) gave %d\n", i, i, ak);
+//     usb_send_str(reply);
+//   }
+//}
+
+
+
 void testAddr(void)
 {
-  int ak;
   const int MRL = 100;
   char reply[MRL];
-  for (int i= 0; i < 0x7f; i++)
-  {
-    Wire.beginTransmission(i);
-    Wire.write(0);
-    ak = Wire.endTransmission(I2C_STOP,1000);
-    snprintf(reply, MRL, "addr test addr %d (%x) gave %d", i, i, ak);
-    usb_send_str(reply);
-  }
+   uint8_t found = 0,target, all=0;
+        usb_send_str("---------------------------------------------------\n");
+        usb_send_str("Starting scan...\n");
+       digitalWrite(LED_BUILTIN,HIGH); // LED on
+        for(target = 1; target <= 0x7F; target++) // sweep addr, skip general call
+        {
+            Wire.beginTransmission(target);       // slave addr
+            Wire.endTransmission();               // no data, just addr
+           
+            if(Wire.status()==I2C_WAITING){
+              snprintf(reply, MRL, "Addr: 0x%02X ACK\n",target);
+              usb_send_str(reply);
+              found = 1;
+            }
+            else if(Wire.status()==I2C_ADDR_NAK){
+              if(all){snprintf(reply, MRL, "Addr: 0x%02X \n",target);
+              usb_send_str(reply);              }
+            }
+        }
+       
+       digitalWrite(LED_BUILTIN,LOW); // LED on
+
+        if(!found) Serial.print("No devices found.\n");
+        
+        delay(500); // delay to space out tests
+};
+
+void readtof(void)
+{
+  VL53L0X sensor;
+
+ const int MRL = 100;
+  char reply[MRL];
+    sensor.init();
+  sensor.setTimeout(500);
+  int dist=sensor.readRangeSingleMillimeters();
+  if (sensor.timeoutOccurred()) { usb_send_str(" TIMEOUT"); }
+  snprintf(reply, MRL, "dist : %d\n",dist);
+  usb_send_str(reply);
+
 }
+
 
 // ////////////////////////////////////////
 
@@ -1377,6 +1428,18 @@ void parse_and_execute_command(char *buf, int8_t serChannel)
         subscribe.sendSubscribeStatus();
       }
     }
+        else if (strncmp(buf, "i2c", 3) == 0){
+     testAddr(); 
+             usb_send_str("i2c scan");
+
+
+    }
+       else if (strncmp(buf, "tof", 3) == 0){
+     readtof(); 
+             usb_send_str("distance...");
+
+
+    }
     else if (strncmp(buf, "sut", 3) == 0)
     {
       char * p1 = &buf[3];
@@ -1401,6 +1464,7 @@ void parse_and_execute_command(char *buf, int8_t serChannel)
       usb_send_str(s);
       usb_serial_flush_input();
     }
+
   }
 }
 
