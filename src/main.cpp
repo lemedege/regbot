@@ -60,7 +60,7 @@
 // for on-board SD card
 #endif
 
-//#define TOFINSTALLED
+#define TOFINSTALLED
 
 
 int16_t robotId = 0;
@@ -204,7 +204,7 @@ void initialization()   // INITIALIZATION
 #ifdef REGBOT_HW4
   Wire.begin ( I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_INT, I2C_RATE_400 );
 #else
-  Wire.begin ( I2C_MASTER, 0x00, I2C_PINS_16_17, I2C_PULLUP_EXT, I2C_RATE_400 );
+  Wire.begin ( I2C_MASTER, 0x00, I2C_PINS_16_17, I2C_PULLUP_INT, I2C_RATE_400 );
 #endif
   // Initialization of MPU9150
   digitalWriteFast ( PIN_LED_DEBUG, 1 );

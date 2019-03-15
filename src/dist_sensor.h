@@ -32,6 +32,9 @@ extern float irB[2];
 /**
  * Calculated sensor distance in meters */
 extern float irDistance[2];
+#ifdef TOFINSTALLED
+    extern float irDistance[4];
+#endif
 /**
  * should time be spend on dist sensor calculation */
 extern bool useDistSensor;
